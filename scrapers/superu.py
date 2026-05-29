@@ -4,16 +4,13 @@ from .base import BaseScraper
 
 class SuperUScraper(BaseScraper):
 
-    # En commentaire pour tester vitesse du scraper sur une section lourde
-    '''sections = ["fruits-et-legumes","viandes-poissons",
+    sections = ["fruits-et-legumes","viandes-poissons",
                 "charcuterie-traiteur","produits-laitiers-oeufs-et-fromages",
                 "surgeles", "epicerie-salee",
                 "epicerie-sucree", "pains-viennoiseries-et-patisseries",
                 "boissons-sans-alcool", "bio",
                 "nutrition-et-regimes-alimentaires", "univers-bebe",
-                "hygiene-et-beaute", "entretien-et-nettoyage"]'''
-
-    sections = {"charcuterie-traiteur"}
+                "hygiene-et-beaute", "entretien-et-nettoyage"]
     
     def run(self):
 
@@ -47,7 +44,9 @@ class SuperUScraper(BaseScraper):
                     timeout=10000
                 )
 
-                self.scroll_to_load_all_products()
+                #self.scroll_to_load_all_products()
+
+                self.scroll_to_load_all_products(section,seen_refs)
 
             except Exception as e:
 
@@ -56,70 +55,7 @@ class SuperUScraper(BaseScraper):
 
                 continue
 
-            products = product.locator(".sale-price")
-
-            print(f"📦 {len(products)} produits trouvés")
-
-            for product in products:
-
-                try:
-
-                    ref = product.get("data-itemid")
-
-                    if ref in seen_refs:
-                        continue
-
-                    seen_refs.add(ref)
-
-                    product_data = self.extract_product(
-                        product,
-                        section
-                    )
-
-                    self.data.append(product_data)
-
-                except Exception as e:
-
-                    print("⚠️ Erreur extraction produit")
-                    print(e)
-
         print(f"\n✅ {len(self.data)} produits récupérés")
-
-    def scroll_to_load_all_products(self):
-            print("⬇️ Chargement progressif des produits...")
-            
-            # Distance de scroll à chaque étape (en pixels)
-            scroll_step = 250 
-            # Temps d'attente entre chaque scroll pour laisser le temps au contenu de se charger (en secondes)
-            scroll_delay = 0.5 
-            
-            last_height = self.page.evaluate("document.body.scrollHeight")
-            current_position = 0
-
-            while True:
-                # Scroll vers le bas
-                current_position += scroll_step
-                self.page.evaluate(f"window.scrollTo(0, {current_position})")
-                
-                # Petite pause pour s'assurer que le "lazy loading" se déclenche
-                time.sleep(scroll_delay)
-                
-                # Vérifie si le scroll_step était trop court et si nous devons descendre encore
-                new_height = self.page.evaluate("document.body.scrollHeight")
-                
-                # Si la hauteur de la page n'a pas augmenté, cela signifie que nous avons atteint le bas
-                if current_position >= new_height:
-                    # Fazemos uma última verificação: a página aumentou enquanto esperávamos?
-                    time.sleep(2) # Pausa maior no final para garantir
-                    final_height = self.page.evaluate("document.body.scrollHeight")
-                    if final_height == new_height:
-                        break
-                    else:
-                        last_height = final_height
-
-            # Volta para o topo para garantir que o seletor pegue todos do início
-            self.page.evaluate("window.scrollTo(0, 0)")
-            print("✅ Tous les produits sont chargés et visibles")
 
     def extract_product(self, product, current_section):
 
@@ -135,7 +71,9 @@ class SuperUScraper(BaseScraper):
         }
 
         # Référence
-        data["reference"] = product.get("data-itemid")
+        data["reference"] = product.get(
+            "data-itemid"
+        )
 
         # Désignation
         title = product.select_one(
@@ -143,7 +81,9 @@ class SuperUScraper(BaseScraper):
         )
 
         if title:
-            data["designation"] = title.get_text(strip=True)
+            data["designation"] = (
+                title.get_text(strip=True)
+            )
 
         # URL
         link = product.select_one(
@@ -158,22 +98,39 @@ class SuperUScraper(BaseScraper):
             )
 
         # Prix
-        price = product.select_one(".sale-price")
+        price = product.select_one(
+            ".sale-price"
+        )
 
         if price:
-            data["prix"] = price.get_text(strip=True)
+
+            data["prix"] = (
+                price.get(
+                    "data-item-price"
+                )
+            )
 
         # Prix/kg
-        unit_price = product.select_one(".unit-info")
+        unit_price = product.select_one(
+            ".unit-info"
+        )
 
         if unit_price:
-            data["prix_kg"] = unit_price.get_text(strip=True)
+
+            data["prix_kg"] = (
+                unit_price.get_text(strip=True)
+            )
 
         # Origine
-        origine = product.select_one(".product-origine")
+        origine = product.select_one(
+            ".product-origine"
+        )
 
         if origine:
-            data["origine"] = origine.get_text(strip=True)
+
+            data["origine"] = (
+                origine.get_text(strip=True)
+            )
 
         return data
 
@@ -199,3 +156,72 @@ class SuperUScraper(BaseScraper):
                 print("✅ Cookies acceptés via Role Name")
             except:
                 print("ℹ️ Aucun pop-up de cookies trouvé ou déjà accepté.")
+
+    def scroll_to_load_all_products(self, section, seen_refs):
+        print("⬇️ Chargement progressif des produits...")
+
+        no_new_products = 0
+        last_seen_count = 0
+
+        while True:
+            # Extração direta no JavaScript
+            products_data = self.page.locator(".product-tile").evaluate_all("""
+                (els) => {
+                    return els.map(e => {
+                        const ref = e.getAttribute('data-itemid');
+                        const titleEl = e.querySelector('.product-name .name-link');
+                        const priceEl = e.querySelector('.sale-price');
+                        const unitEl = e.querySelector('.unit-info');
+                        const orgEl = e.querySelector('.product-origine');
+                        
+                        return {
+                            reference: ref,
+                            designation: titleEl ? titleEl.textContent.trim() : null,
+                            url_product: titleEl && titleEl.getAttribute('href') ? 'https://www.coursesu.com' + titleEl.getAttribute('href') : null,
+                            prix: priceEl ? priceEl.getAttribute('data-item-price') : null,
+                            prix_kg: unitEl ? unitEl.textContent.trim() : null,
+                            origine: orgEl ? orgEl.textContent.trim() : null
+                        };
+                    });
+                }
+            """)
+
+            print(f"📦 Produits actuellement dans le DOM: {len(products_data)}")
+
+            # 2. Processamento ultra rápido dos dicionários em Python
+            for p in products_data:
+                ref = p["reference"]
+                if not ref or ref in seen_refs:
+                    continue
+
+                seen_refs.add(ref)
+                
+                # Adiciona os metadados diretamente no dicionário vindo do JS
+                p["section"] = section
+                p["Fournisseur"] = "SuperU"
+                
+                self.data.append(p)
+                print(f"-> {p['designation']}")
+
+            # Verica se novos produtos foram carregados comparando o número de referências vistas
+            if len(seen_refs) == last_seen_count:
+                no_new_products += 1
+            else:
+                no_new_products = 0
+
+            last_seen_count = len(seen_refs)
+
+            # Se não surgirem novos produtos após algumas tentativas, encerra a seção
+            if no_new_products >= 10: 
+                print("✅ Fin du chargement détectée")
+                break
+
+            # Rola até o último elemento renderizado para ativar o infinite scroll
+            try:
+                self.page.locator(".product-tile").last.scroll_into_view_if_needed()
+            except Exception:
+                # Fallback de segurança caso o locator falhe por um milissegundo
+                self.page.evaluate("window.scrollBy(0, 800)")
+
+            # Tempo para o site carregar mais dados
+            self.page.wait_for_timeout(1000)
