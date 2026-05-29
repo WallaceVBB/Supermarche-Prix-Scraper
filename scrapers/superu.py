@@ -1,12 +1,20 @@
 import time
-from bs4 import BeautifulSoup
 from .base import BaseScraper
 
 
 class SuperUScraper(BaseScraper):
 
-    sections = {"fruits-et-legumes"}
+    # En commentaire pour tester vitesse du scraper sur une section lourde
+    '''sections = ["fruits-et-legumes","viandes-poissons",
+                "charcuterie-traiteur","produits-laitiers-oeufs-et-fromages",
+                "surgeles", "epicerie-salee",
+                "epicerie-sucree", "pains-viennoiseries-et-patisseries",
+                "boissons-sans-alcool", "bio",
+                "nutrition-et-regimes-alimentaires", "univers-bebe",
+                "hygiene-et-beaute", "entretien-et-nettoyage"]'''
 
+    sections = {"charcuterie-traiteur"}
+    
     def run(self):
 
         print("🚚 Scraping SuperU...")
@@ -48,15 +56,7 @@ class SuperUScraper(BaseScraper):
 
                 continue
 
-            # =========================
-            # HTML COMPLET
-            # =========================
-
-            html = self.page.content()
-
-            soup = BeautifulSoup(html, "html.parser")
-
-            products = soup.select(".product-tile")
+            products = product.locator(".sale-price")
 
             print(f"📦 {len(products)} produits trouvés")
 
@@ -109,15 +109,15 @@ class SuperUScraper(BaseScraper):
                 
                 # Si la hauteur de la page n'a pas augmenté, cela signifie que nous avons atteint le bas
                 if current_position >= new_height:
-                    # Dernière vérification si la langeur de la page a augmenter depuis
-                    time.sleep(2)
+                    # Fazemos uma última verificação: a página aumentou enquanto esperávamos?
+                    time.sleep(2) # Pausa maior no final para garantir
                     final_height = self.page.evaluate("document.body.scrollHeight")
                     if final_height == new_height:
                         break
                     else:
                         last_height = final_height
 
-            # Revient au debut pour garantir que le scraper capture tous les produits
+            # Volta para o topo para garantir que o seletor pegue todos do início
             self.page.evaluate("window.scrollTo(0, 0)")
             print("✅ Tous les produits sont chargés et visibles")
 
@@ -126,12 +126,12 @@ class SuperUScraper(BaseScraper):
         data = {
             "designation": None,
             "reference": None,
-            "url_product": None,
             "section": current_section,
             "prix": None,
             "prix_kg": None,
             "origine": None,
-            "Fournisseur": "SuperU"
+            "Fournisseur": "SuperU",
+            "url_product": None
         }
 
         # Référence
