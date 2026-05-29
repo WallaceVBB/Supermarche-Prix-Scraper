@@ -24,7 +24,6 @@ def main():
             ]
             else route.continue_()
         )
-        
 
         # Changez variable "Fournisseur" pour tester différents scrapers
         Fournisseur = "SuperU" 
@@ -36,7 +35,6 @@ def main():
                 scraper.save_to_csv("donnees_supermarches/donnees_superu.csv")
             except Exception as e:
                 print(f"❌ Erro: {e}")
-                page.screenshot(path="error_superu.png", full_page=True)
         
         browser.close()
 
