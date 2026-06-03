@@ -7,6 +7,7 @@ The project focuses on handling modern anti-bot protections (such as Cloudflare)
 
 ## Current Supported Supermarkets
 - Super U (coursesu.com)
+- Intermarche (in progress)
 
 
 ## Python libraries used
