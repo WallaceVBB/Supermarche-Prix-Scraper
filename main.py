@@ -1,6 +1,7 @@
 from playwright.sync_api import sync_playwright
 from seleniumbase import sb_cdp
 from scrapers.superu import SuperUScraper
+from scrapers.intermarche import IntermarcheScraper
 
 
 def main():
@@ -33,6 +34,14 @@ def main():
                 scraper = SuperUScraper(page)
                 scraper.run()
                 scraper.save_to_csv("donnees_supermarches/donnees_superu.csv")
+            except Exception as e:
+                print(f"❌ Erro: {e}")
+        
+        if Fournisseur == "Intermarche":
+            try:
+                scraper = IntermarcheScraper(page)
+                scraper.run()
+                scraper.save_to_csv("donnees_supermarches/donnees_intermarche.csv")
             except Exception as e:
                 print(f"❌ Erro: {e}")
         
